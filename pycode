@@ -1,0 +1,67 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# ── 参数 ──────────────────────────────────────────────────────
+params = dict(
+    delta1=1, delta2=1,
+    eps1=-1,   eps2=-1,
+    lambda1=0.25, lambda2=0.33,
+    x=0.7, y=0.7,
+    M1=50, M2=32,
+)
+
+# ── 初始条件（只取一组）──────────────────────────────────────
+p0, q0 = 0.7, 0.7
+
+T     = 4
+DT    = 0.05
+STEPS = int(T / DT)
+
+# ── 积分函数 ─────────────────────────────────────────────────
+def rhs(pv, qv, p):
+    A1 = p['eps1'] - p['y'] * p['lambda1'] * p['M1']
+    A2 = p['eps2'] - p['x'] * p['lambda2'] * p['M2']
+    dp = pv * (1 - pv) * (-qv * p['delta1'] + (1 - qv) * A1)
+    dq = qv * (1 - qv) * (-pv * p['delta2'] + (1 - pv) * A2)
+    return dp, dq
+
+def rk4(pv, qv, dt, p):
+    k1p, k1q = rhs(pv, qv, p)
+    k2p, k2q = rhs(pv + dt/2*k1p, qv + dt/2*k1q, p)
+    k3p, k3q = rhs(pv + dt/2*k2p, qv + dt/2*k2q, p)
+    k4p, k4q = rhs(pv + dt*k3p,   qv + dt*k3q,   p)
+    pn = pv + dt/6*(k1p + 2*k2p + 2*k3p + k4p)
+    qn = qv + dt/6*(k1q + 2*k2q + 2*k3q + k4q)
+    return np.clip(pn, 1e-7, 1-1e-7), np.clip(qn, 1e-7, 1-1e-7)
+
+def integrate(p0, q0):
+    t_arr = np.linspace(0, T, STEPS + 1)
+    p_arr, q_arr = np.zeros(STEPS+1), np.zeros(STEPS+1)
+    p_arr[0], q_arr[0] = p0, q0
+    for i in range(STEPS):
+        p_arr[i+1], q_arr[i+1] = rk4(p_arr[i], q_arr[i], DT, params)
+    return t_arr, p_arr, q_arr
+
+# ── 绘图 ─────────────────────────────────────────────────────
+t, p_arr, q_arr = integrate(p0, q0)
+
+fig, ax = plt.subplots(figsize=(7, 4), facecolor='#FAFAF8')
+ax.set_facecolor('#FAFAF8')
+
+ax.plot(t, p_arr, color='#1D9E75', lw=1.8, label='$p(t)$ — player 1')
+ax.plot(t, q_arr, color='#BA7517', lw=1.8, label='$q(t)$ — player 2')
+ax.plot(0, p0, 'o', ms=5, color='#1D9E75')
+ax.plot(0, q0, 'o', ms=5, color='#BA7517')
+
+ax.set_xlabel('time $t$', fontsize=10)
+ax.set_ylabel('p, q', fontsize=10)
+ax.set_title(f'Co-evolution  $(p_0, q_0) = ({p0}, {q0})$', fontsize=11)
+ax.set_ylim(-0.03, 1.03)
+ax.legend(fontsize=9, framealpha=0.85, edgecolor='#C8C6BC', fancybox=False)
+ax.grid(True, lw=0.4, alpha=0.35, color='gray')
+for spine in ax.spines.values():
+    spine.set_linewidth(0.6)
+
+plt.tight_layout()
+plt.savefig('coevolution.png', dpi=180, bbox_inches='tight')
+plt.show()
